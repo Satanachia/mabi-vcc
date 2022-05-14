@@ -16,3 +16,5 @@ Example from demo
     <input type="submit" value="Submit" name="submit">
 </form>
 ```
+## Preview from in game
+![Preview](image.png)

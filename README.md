@@ -2,7 +2,7 @@
 A converter for images to Mabinogi visual chat format written in PHP
  
 ## Requirements
-You will need PHP and the Command-line binary for [pngquant](https://pngquant.org). 
+You will need PHP, gd extension for PHP, and the Command-line binary for [pngquant](https://pngquant.org). 
 
 ## Usage
 POST to mabivcc.php with two images using mabiVc and newImage.

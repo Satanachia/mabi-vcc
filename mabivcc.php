@@ -48,7 +48,7 @@ function convertPng($pathToNewVC, $newVcExtension, $mabiVC)
 
     // '-' makes it use stdout, required to save to $compressed_png_content variable
     // '<' makes it read from the given file path
-    $compressed_png_content = shell_exec("pngquant 3 - < /tmp/tmp.png");
+    $compressed_png_content = shell_exec("pngquant 4 - < /tmp/tmp.png");
     
     if (!$compressed_png_content) {
         throw new Exception("Conversion to compressed PNG failed. Is pngquant 1.8+ installed on the server?");

@@ -14,7 +14,11 @@
 function convertPng($pathToNewVC, $newVcExtension, $mabiVC)
 {
     if (!file_exists($pathToNewVC)) {
+	header("Location: /");
         throw new Exception("File does not exist: $pathToNewVC");
+    }
+    if (!file_exists($mabiVC)) {
+        $mabiVC="temporary.png";
     }
 
     switch( $newVcExtension ) {
@@ -28,6 +32,7 @@ function convertPng($pathToNewVC, $newVcExtension, $mabiVC)
             $source = imagecreatefromjpeg($pathToNewVC); 
             break;
         default:
+	    header("Location: /");
             throw new Exception("File type not supported: $newVcExtension");
     }
 
@@ -48,7 +53,7 @@ function convertPng($pathToNewVC, $newVcExtension, $mabiVC)
 
     // '-' makes it use stdout, required to save to $compressed_png_content variable
     // '<' makes it read from the given file path
-    $compressed_png_content = shell_exec("pngquant 4 - < /tmp/tmp.png");
+    $compressed_png_content = shell_exec("pngquant --speed 10 4 - < /tmp/tmp.png");
     
     if (!$compressed_png_content) {
         throw new Exception("Conversion to compressed PNG failed. Is pngquant 1.8+ installed on the server?");
@@ -57,10 +62,6 @@ function convertPng($pathToNewVC, $newVcExtension, $mabiVC)
 
     $compressed_png_content = swapChunks($mabiVC, $compressed_png_content);
     
-    //file_put_contents("shrek.png", $compressed_png_content);
-    header( 'Content-type: image/png' );
-    header('Content-Disposition: attachment; filename="chat_'.date('Ymd_His').'_Download.png"');
-    echo $compressed_png_content;
     return $compressed_png_content;
 }
 
@@ -172,6 +173,17 @@ function swapChunks($mabiVC, $newVC){
 
 if(isset($_POST['submit']))
 {
-    convertPng($_FILES['newImage']["tmp_name"],$_FILES['newImage']["type"],$_FILES['mabiVc']["tmp_name"]);
-} 
+    $compressed_png_content = convertPng($_FILES['newImage']["tmp_name"],$_FILES['newImage']["type"],$_FILES['mabiVc']["tmp_name"]);
+
+    //file_put_contents("/opt/vcc/chat_".date('Ymd_His')."_Download.png", $compressed_png_content);
+    header( 'Content-type: image/png' );
+    header('Content-Disposition: attachment; filename="chat_'.date('Ymd_His').'_Download.png"');
+    echo $compressed_png_content;
+
+}
+else
+{
+    header("Location: /");
+    exit();
+}
 ?>

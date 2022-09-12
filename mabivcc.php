@@ -8,19 +8,16 @@
  *
  * @param $pathToNewVC string - path to any PNG file, e.g. $_FILE['file']['tmp_name']
  * @param $newVcExtension string - image type,  e.g. $_FILE['file']['type']
- * @param $mabiVC string - path to any PNG file, e.g. $_FILE['file']['tmp_name']
- * @return string - content of PNG file after conversion
+ *
+ * @return string - raw content of PNG file after conversion
  */
-function convertPng($pathToNewVC, $newVcExtension, $mabiVC)
+function compressPng($pathToNewVC, $newVcExtension)
 {
     if (!file_exists($pathToNewVC)) {
 	header("Location: /");
         throw new Exception("File does not exist: $pathToNewVC");
     }
-    if (!file_exists($mabiVC)) {
-        $mabiVC="temporary.png";
-    }
-
+    
     switch( $newVcExtension ) {
         case "image/gif": 
             $source = imagecreatefromgif($pathToNewVC); 
@@ -36,11 +33,12 @@ function convertPng($pathToNewVC, $newVcExtension, $mabiVC)
             throw new Exception("File type not supported: $newVcExtension");
     }
 
+    // Set new image size to maximum allowed by Visual Chat
     list($width, $height) = getimagesize($pathToNewVC);
     $newwidth = 256;
     $newheight = 96;
 
-    // Load
+    // Prepare
     $thumb = imagecreatetruecolor($newwidth, $newheight);
     imagealphablending($thumb, false);
     imagesavealpha($thumb, true); 
@@ -59,19 +57,28 @@ function convertPng($pathToNewVC, $newVcExtension, $mabiVC)
         throw new Exception("Conversion to compressed PNG failed. Is pngquant 1.8+ installed on the server?");
     }
     
-
-    $compressed_png_content = swapChunks($mabiVC, $compressed_png_content);
-    
     return $compressed_png_content;
 }
 
+/**
+ * Swaps PNG chunks (raw data) from $newVC into $mabiVC to convert $newVC to Visual Chat format
+ *
+ * $mabiVC is used as the base because $newVC can have a variety of chunks that disrupt the format
+ *
+ * @param $newVC string - Compressed raw PNG image to be converted
+ * @param $mabiVC string - Existing raw Visual Chat PNG image
+ *
+ * @return string - Raw PNG file after swapping PNG chunks
+ */
 function swapChunks($mabiVC, $newVC){
+    // Prepare new image for conversion
     $contents = $newVC;
     $pos = 8; // skip header
     
-    $color_types = array('Greyscale','unknown','Truecolour','Indexed-color','Greyscale with alpha','unknown','Truecolor with alpha');
     $len = strlen($contents);
     $safety = 1000;
+    // Grab chunks from the PNG being converted 
+    // PLTE = Pallet; IDAT = image data; IHDR = image header
     do {
         list($unused,$chunk_len) = unpack('N', substr($contents,$pos,4));
 
@@ -80,14 +87,8 @@ function swapChunks($mabiVC, $newVC){
         $chunk_data = substr($contents,$pos,$chunk_len+12);
 
         list($unused,$chunk_crc) = unpack('N', substr($contents,$pos+8+$chunk_len,4));
-        //echo "chunk length:$chunk_len(dec) 0x" . sprintf('%08x',$chunk_len) . "h<br>\n";
-        //echo "chunk crc   :0x" . sprintf('%08x',$chunk_crc) . "h<br>\n";
-        //echo "chunk type  :$chunk_type<br>\n";
-        //echo "chunk data  $chunk_type bytes:<br>\n"  . chunk_split(bin2hex($chunk_data)) . "<br>\n";
         switch($chunk_type) {
             case 'IHDR':
-                //echo bin2hex($chunk_data) . "\n";
-                //echo $chunk_len . "\n";
                 $IHDR = $chunk_data;
                 $IHDR_chunk_len = $chunk_len;
             break;
@@ -95,31 +96,28 @@ function swapChunks($mabiVC, $newVC){
             case 'PLTE':
                 $PLTE = $chunk_data;
                 $PLTE_chunk_len = $chunk_len;
-                //echo "got PLTE";
             break;
 
             case 'IDAT':
                 $IDAT = $chunk_data;
                 $IDAT_chunk_len = $chunk_len;
-                //echo $IDAT;
             break;
-            default:
-                //echo $chunk_type . "\n";
+            default
                 break;
 
 
         }
         $pos += $chunk_len + 12;
-        //echo "<hr>";
     } while(($pos < $len) && --$safety);
 
-    $contents = file_get_contents($mabiVC);
-    //echo bin2hex($contents) . "\n";
+    // Prepare existing image for conversion
+    $contents = $mabiVC;
     $pos = 8; // skip header
-
-    $color_types = array('Greyscale','unknown','Truecolour','Indexed-color','Greyscale with alpha','unknown','Truecolor with alpha');
+	
     $len = strlen($contents);
     $safety = 1000;
+    // Set chunks from the PNG being converted to existing Visual Chat PNG ($mabiVC)
+    // PLTE = Pallet; IDAT = image data; IHDR = image header
     do {
         list($unused,$chunk_len) = unpack('N', substr($contents,$pos,4));
 
@@ -128,57 +126,71 @@ function swapChunks($mabiVC, $newVC){
         $chunk_data = substr($contents,$pos,$chunk_len);
 
         list($unused,$chunk_crc) = unpack('N', substr($contents,$pos+8+$chunk_len,4));
-        //echo "chunk length:$chunk_len(dec) 0x" . sprintf('%08x',$chunk_len) . "h<br>\n";
-        //echo "chunk crc   :0x" . sprintf('%08x',$chunk_crc) . "h<br>\n";
-        //echo "chunk type  :$chunk_type<br>\n";
-        //echo "chunk data  $chunk_type bytes:<br>\n"  . chunk_split(bin2hex($chunk_data)) . "<br>\n";
+	    
+	// Check for necessary chunk types and swap
         switch($chunk_type) {
             case 'IHDR':
-                //echo strlen($contents) . "\n";
-                //echo 'IHDR FOUND' . $chunk_len . " " . $IHDR_chunk_len . "\n";
                 $contents = substr($contents,0,$pos) . $IHDR . substr($contents,$pos+12+$chunk_len);
-                //echo strlen($contents) . "\n";
                 $chunk_len = $IHDR_chunk_len;
             break;
 
             case 'PLTE':
-                //echo strlen($contents) . "\n";
-                //echo 'PLTE FOUND' . $chunk_len . " " . $PLTE_chunk_len . "\n";
                 $contents = substr($contents,0,$pos) . $PLTE . substr($contents,$pos+12+$chunk_len);
-                //echo strlen($contents) . "\n";
                 $chunk_len = $PLTE_chunk_len;
             break;
 
             case 'IDAT':
-                //echo strlen($contents) . "\n";
-                //echo 'IDAT FOUND' . $chunk_len . " " . $IDAT_chunk_len . "\n";
                 $contents = substr($contents,0,$pos) . $IDAT . substr($contents,$pos+12+$chunk_len);
-                //echo strlen($contents) . "\n";
                 $chunk_len = $IDAT_chunk_len;
             break;
 
             default:
-                //echo $chunk_type . "\n";
                 break;
 
         }
         $pos += $chunk_len + 12;
-        //echo "<hr>";
     } while(($pos < $len) && --$safety);
-    //echo bin2hex($contents) . "\n";
-    //file_put_contents("shrek2.png", $contents);
+	
     return $contents;
 }
 
+/**
+ * Convert new PNG to Visual Chat format
+ *
+ * @param $pathToNewVC string - path to any PNG file, e.g. $_FILE['file']['tmp_name']
+ * @param $newVcExtension string - image type,  e.g. $_FILE['file']['type']
+ * @param $mabiVC string - path to any PNG file, e.g. $_FILE['file']['tmp_name']
+ *
+ * @return string - raw content of PNG file after conversion
+ */
+function convertPng($pathToNewVC, $newVcExtension, $mabiVC){
+    // Compress new PNG
+    $new_png_content = compressPng($pathToNewVC, $newVcExtension, $mabiVC);
+	
+    // Use default image if a file is not provided; Sets author to "Download" in game
+    if (!file_exists($mabiVC)) {
+        $mabiVC="temporary.png";
+    }
+    // Load the existing Visual Chat image
+    $existingVC = file_get_contents($mabiVC);
+	
+    // Convert new PNG to Visual Chat format
+    $new_png_content = swapChunks($existingVC, $new_png_content);
+	
+    return $new_png_content;
+}
 
 if(isset($_POST['submit']))
 {
-    $compressed_png_content = convertPng($_FILES['newImage']["tmp_name"],$_FILES['newImage']["type"],$_FILES['mabiVc']["tmp_name"]);
-
-    //file_put_contents("/opt/vcc/chat_".date('Ymd_His')."_Download.png", $compressed_png_content);
+    // Convert PNG using provided files
+    $new_png_content = convertPng($_FILES['newImage']["tmp_name"],$_FILES['newImage']["type"],$_FILES['mabiVc']["tmp_name"]);
+	
+    // Prepare PNG for download and set file name to usable format
     header( 'Content-type: image/png' );
     header('Content-Disposition: attachment; filename="chat_'.date('Ymd_His').'_Download.png"');
-    echo $compressed_png_content;
+	
+    // Download converted PNG
+    echo $new_png_content;
 
 }
 else

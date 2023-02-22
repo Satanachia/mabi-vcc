@@ -11,7 +11,7 @@ A [default Visual Chat image](https://github.com/ryuugana/mabi-vcc/blob/main/tem
 The new Visual Chat will be downloaded as a PNG when the conversion has completed.<br/>
 A basic example can be found in the [demo](https://github.com/ryuugana/mabi-vcc/blob/main/mabivcc.html).<br/>
 In order to use the [demo](https://github.com/ryuugana/mabi-vcc/blob/main/mabivcc.html) make sure mabivcc.php, mabivcc.html, and temporary.png are in the same directory.<br/>
-Another example is this [website](http://mabivcc.gq) which uses mabi-vcc.
+Another example is this [website](http://mabiv.cc) which uses mabi-vcc.
 
 ## Preview from in game
 ![Preview](image.png)
